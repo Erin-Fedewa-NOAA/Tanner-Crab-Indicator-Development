@@ -1,5 +1,5 @@
 # notes ----
-#Create master csv of Tanner crab ecosystem indicators 
+#Create master csv of Tanner crab ecosystem indicators for Markdown
 
 #Author: Erin Fedewa
 
@@ -16,7 +16,7 @@ d95 <- read_csv("./output/area_occupied.csv")
 bcs <- read_csv("./output/bcd_prev.csv")
 cod <- read_csv("./output/centroid_abun.csv")
 occ <- read_csv("./output/Temp_Occupied.csv")
-sam <- read_csv("./data/tanner_SAM.csv")
+#sam <- read_csv("./data/tanner_SAM.csv") #Contributor Jon Richar- still waiting on data 
 
 # combine indices and save output
 invert %>%
@@ -37,17 +37,10 @@ invert %>%
   full_join(occ %>%
               select(YEAR, Immature) %>%
               rename(Summer_Tanner_Juvenile_Temperature_Occupancy = Immature)) %>%
-  full_join(sam %>%
-              select(YEAR, Immature) %>%
-              rename(Annual_Tanner_Male_Size_Maturity_Model = Immature)) %>%
   rename(year = YEAR) %>%
   filter(year >= 1982) %>%
-  arrange(year) -> eco_ind #need to add in 2020 with NAs
+  add_row(year = 2020) %>%
+  arrange(year) -> eco_ind 
 
 write_csv(eco_ind, "./data/tanner_eco_indicators.csv")
 
-#Assess collinearity b/w indicators 
-eco_ind %>% 
-  select(-year) %>%
-  cor(use = "complete.obs") %>%
-  corrplot(method="number")
