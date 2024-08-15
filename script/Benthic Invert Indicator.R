@@ -1,35 +1,30 @@
 # notes ----
-#Determine stations that compose average snow crab core habitat across the EBS timeseries
-#Summarize benthic invert mean CPUE across years in core area  
+#Determine stations that compose tanner crab core habitat across the EBS timeseries
+#Summarize benthic invert mean CPUE across years in core area as a proxy for prey 
 
 # Erin Fedewa
-# last updated: 2024/3/20
 
 # load ----
 library(tidyverse)
 library(mgcv)
+library(sf)
+library(rnaturalearth)
+library(rnaturalearthdata)
 
-## EBS haul data 
-sc_catch <- read.csv("./Data/crabhaul_opilio.csv")
+#Tanner haul data 
+tanner_haul <- read.csv("./Data/crabhaul_bairdi.csv")
 
-#EBS strata data 
-sc_strata <- read.csv("./Data/crabstrata_opilio.csv")
+#Tanner strata data 
+tanner_strata <- read_csv("./Data/crabstrata_bairdi.csv")
 
 #Load groundfish data queried directly from Racebase (see gf_data_pull.R script)
-benthic <- read.csv("./Data/gf_cpue_timeseries.csv")
+benthic <- read.csv("./data/gf_cpue_timeseries.csv")
 
 ############################
 #Core Area 
 
-#Stations sampled in each year
-sc_catch %>%
-  group_by(CRUISE) %>%
-  summarise(num_stations = length(unique(GIS_STATION))) %>%
-  print(n=60)
-#Lets determine core area from standardized timeseries (post-1987)
-
-#Calculate CPUE by station for all snow crab 
-sc_catch %>%
+#Calculate CPUE by station for all tanner crab 
+tanner_haul %>%
   mutate(YEAR = as.numeric(str_extract(CRUISE, "\\d{4}"))) %>%
   filter(HAUL_TYPE == 3, 
          SEX %in% 1:2,
@@ -38,7 +33,7 @@ sc_catch %>%
   summarise(N_CRAB = sum(SAMPLING_FACTOR, na.rm = T),
             CPUE = N_CRAB / mean(AREA_SWEPT)) %>%
   #join to zero catch stations
-  right_join(sc_strata %>%
+  right_join(tanner_strata %>%
                filter(SURVEY_YEAR > 1987) %>%
                distinct(SURVEY_YEAR, STATION_ID, STRATUM, TOTAL_AREA) %>%
                rename_all(~c("YEAR", "GIS_STATION", 
@@ -52,21 +47,31 @@ cpue %>%
   filter(AVG_CPUE > quantile(AVG_CPUE, 0.50)) -> perc50 #187 stations
 #Lets go with the 50th percentile for defining core area 
 
-#Join lat/long back in to perc50 dataset and plot
-sc_strata %>%
+#Join lat/long back in to perc50 dataset 
+tanner_strata %>%
   filter(SURVEY_YEAR == 2021) %>% #Just selecting a yr when all stations were sampled
   select(STATION_ID, LATITUDE, LONGITUDE) %>%
   dplyr::rename(GIS_STATION = STATION_ID) %>%
   right_join(perc50) -> perc50_core
 
+#Quick plot
+world <- ne_countries(scale = "medium", returnclass = "sf")
+
+ggplot(data = world) +
+  geom_sf() +
+  geom_point(data = perc50_core, aes(x = LONGITUDE, y = LATITUDE), size = 2, 
+             shape = 23, fill = "darkred") +
+  coord_sf(xlim = c(-178, -159), ylim = c(53, 61), expand = FALSE) +
+  theme_bw()
+
 #Write csv for stations in 50th percentile of avg CPUE  
-write.csv(perc50_core, file="./Output/sc_area_50perc.csv")
+write.csv(perc50_core, file="./Output/tanner_area_50perc.csv")
 
 ##################################################
 #Benthic invert CPUE
 
 #Use core area dataset to spatially subset invert data 
-sta <- read_csv("./Output/sc_area_50perc.csv")
+sta <- read_csv("./Output/tanner_area_50perc.csv")
 sta %>% 
   pull(GIS_STATION) -> core
 
@@ -78,13 +83,7 @@ benthic %>%
   print(n=50)
 #A few missing stations in some years- 
 
-#Number of stations with catch data across entire survey grid 
-benthic %>%
-  group_by(YEAR) %>%
-  summarise(station = length(unique(STATION))) %>%
-  print(n=50)
-
-#Calculate mean CPUE for each guild across years 
+#Calculate mean CPUE for each prey guild across years 
 benthic %>%
   filter(STATION %in% core, 
          YEAR >= 1988,
@@ -124,15 +123,10 @@ benthic %>%
             Porifera = mean(Porifera_cpue),
             Bryozoans = mean(Bryozoans_cpue),
             Ascidians = mean(Ascidians_cpue),
-            Total_Benthic = mean(Total_Benthic_cpue))-> SCbenthic_timeseries
-
-write_csv(SCbenthic_timeseries, file = "./Output/SCbenthic_timeseries.csv")
-
-#Load output
-benthic_cpue <- read_csv("./Output/SCbenthic_timeseries.csv")
+            Total_Benthic = mean(Total_Benthic_cpue))-> benthic_invert
 
 #Plots 
-benthic_cpue %>%
+benthic_invert %>%
   pivot_longer(c(2:17), names_to = "benthic_guild", values_to = "CPUE_KGKM2") %>%
   ggplot(aes(x = YEAR, y = CPUE_KGKM2, group = factor(benthic_guild)))+
   geom_point(aes(colour = benthic_guild)) +
@@ -142,11 +136,15 @@ benthic_cpue %>%
   theme_bw()+
   theme(panel.grid = element_blank()) 
 
-SCbenthic_timeseries %>%
+benthic_invert %>%
   ggplot(aes(x = YEAR, y = Total_Benthic)) +
   geom_point() +
   geom_line() +
   labs(y = "Total Benthic Invert CPUE (1000t/km2)", x = "") +
+  geom_hline(aes(yintercept = mean(Total_Benthic, na.rm=TRUE)), linetype = 5)+
   theme_bw()+
   theme(panel.grid = element_blank()) 
+ggsave(path="./figs", "benthic_invert.png")
+
+write_csv(benthic_invert, file = "./output/benthic_invert.csv")
 
