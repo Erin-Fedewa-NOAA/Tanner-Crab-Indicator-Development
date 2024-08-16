@@ -1,7 +1,7 @@
 #notes ----
 #Calculate:
-  #a) Tanner Crab center of abundance in EBS by size/sex category
-  #b) Area Occupied (D95)- area of stations that make up 95% of the cumulative Tanner cpue
+#a) Tanner Crab center of abundance in EBS by size/sex category
+#b) Area Occupied (D95)- area of stations that make up 95% of the cumulative Tanner cpue
 
 #Author: Erin Fedewa
 
@@ -23,6 +23,15 @@ corner <- list("QP2625","ON2625","HG2019","JI2120","IH1918",
 #Tanner haul data 
 tanner_haul <- read.csv("./Data/crabhaul_bairdi.csv")
 
+#size at 50% maturity lookup
+#we'll use this to assign male maturity by year, but b/c were missing 
+#years, we'll assign with static 103mm cutline, which is nearly eq. to 104mm timeseries mean
+read_csv("./output/size_at_mat.csv") %>%
+  select(Year, SAM_pop) %>%
+  add_row(Year = c(1975:1989, 2013, 2015), SAM_pop = 103) %>%
+  mutate(across(SAM_pop, round, 2)) %>%
+  rename(YEAR = Year, male_cutline = SAM_pop) -> mat
+
 #####################################
 #Quick data exploration: stations sampled in each year
 tanner_haul %>%
@@ -36,11 +45,12 @@ tanner_haul %>%
 ## compute cpue by size-sex group for each station
 tanner_haul %>% 
   mutate(YEAR = as.numeric(str_extract(CRUISE, "\\d{4}"))) %>%
+  left_join(mat) %>%
   filter(HAUL_TYPE == 3 , 
          SEX %in% 1:2,
          YEAR > 1987) %>%
-  mutate(size_sex = ifelse(SEX == 1 & WIDTH_1MM < 103, "immature_male",
-                           ifelse(SEX == 1 & WIDTH_1MM >= 103, "mature_male",
+  mutate(size_sex = ifelse(SEX == 1 & WIDTH_1MM < male_cutline, "immature_male",
+                           ifelse(SEX == 1 & WIDTH_1MM >= male_cutline, "mature_male",
                                   ifelse(SEX == 2 & CLUTCH_SIZE >= 1, "mature_female",
                                          ifelse(SEX == 2 & CLUTCH_SIZE == 0, "immature_female", NA))))) %>%
   group_by(YEAR, GIS_STATION, MID_LATITUDE, MID_LONGITUDE, AREA_SWEPT, size_sex) %>%
@@ -77,10 +87,10 @@ ggsave(path = "./figs", "Tanner_Centroid.png")
 COD %>%
   pivot_wider(names_from = "size_sex", values_from = "Lat_COD") %>%
   write.csv(file="./Output/centroid_abun.csv")
-  
+
 ################################
 # compute D95 by each size and sex category ----
-  #i.e. the number of stations contributing to 95% of cumulative cpue
+#i.e. the number of stations contributing to 95% of cumulative cpue
 
 # function to compute D95
 f_d95_est <- function(x){
@@ -117,14 +127,13 @@ d95 %>%
 ggsave(path = "./figs", "Tanner_Area_Occupied.png")
 
 #would certainly be worthwhile to plot this against abundance, as I'd expect 
-  #the two to track each other
+#the two to track each other
 
 #Write output for D95 indicator     
 d95 %>%
   select(-cpue) %>%
   pivot_wider(names_from = "size_sex", values_from = "d95") %>%
   write.csv(file="./Output/area_occupied.csv")
-
 
 
 

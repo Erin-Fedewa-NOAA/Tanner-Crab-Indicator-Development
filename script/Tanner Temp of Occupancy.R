@@ -9,16 +9,26 @@ library(tidyverse)
 #Tanner haul data 
 tanner_haul <- read.csv("./Data/crabhaul_bairdi.csv")
 
+#size at 50% maturity lookup
+#we'll use this to assign male maturity by year, but b/c were missing 
+#years, we'll assign with static 103mm cutline, which is nearly eq. to 104mm timeseries mean
+read_csv("./output/size_at_mat.csv") %>%
+  select(Year, SAM_pop) %>%
+  add_row(Year = c(1975:1989, 2013, 2015), SAM_pop = 103) %>%
+  mutate(across(SAM_pop, round, 2)) %>%
+  rename(YEAR = Year, male_cutline = SAM_pop) -> mat
+
 #########################################
 ## compute cpue by size-sex group for each station
 
 tanner_haul %>% 
   mutate(YEAR = as.numeric(str_extract(CRUISE, "\\d{4}"))) %>%
+  left_join(mat) %>%
   filter(HAUL_TYPE == 3, 
          SEX %in% 1:2,
          YEAR > 1987) %>%
-  mutate(size_sex = ifelse(SEX == 1 & WIDTH_1MM < 103 | SEX == 2 & CLUTCH_SIZE == 0, "Immature",
-                           ifelse(SEX == 2 & CLUTCH_SIZE >= 1 | SEX == 1 & WIDTH_1MM >= 103,  "Mature", NA))) %>%
+  mutate(size_sex = ifelse(SEX == 1 & WIDTH_1MM < male_cutline | SEX == 2 & CLUTCH_SIZE == 0, "Immature",
+                           ifelse(SEX == 2 & CLUTCH_SIZE >= 1 | SEX == 1 & WIDTH_1MM >= male_cutline,  "Mature", NA))) %>%
   group_by(YEAR, GIS_STATION, MID_LATITUDE, MID_LONGITUDE, AREA_SWEPT, GEAR_TEMPERATURE, size_sex) %>%
   summarise(num_crab = round(sum(SAMPLING_FACTOR))) %>%
   filter(!is.na(AREA_SWEPT)) %>%
@@ -47,6 +57,7 @@ temp_occ %>%
   geom_point(size=3)+
   geom_line() +
   theme_bw() +
+  geom_hline(aes(yintercept = mean(TEMP_OCC, na.rm=TRUE)), linetype = 5)+
   labs(x="", y="Temperature Occupied (C)") +
   theme(legend.title=element_blank()) 
 ggsave(path = "./figs", "Tanner_Temp_Occupied.png")
