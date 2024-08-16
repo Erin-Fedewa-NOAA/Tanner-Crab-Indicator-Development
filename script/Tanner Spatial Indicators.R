@@ -1,6 +1,6 @@
 #notes ----
 #Calculate:
-#a) Tanner Crab center of abundance in EBS by size/sex category
+#a) Tanner Crab center of abundance (lat &long) in EBS by size/sex category
 #b) Area Occupied (D95)- area of stations that make up 95% of the cumulative Tanner cpue
 
 #Author: Erin Fedewa
@@ -23,10 +23,10 @@ corner <- list("QP2625","ON2625","HG2019","JI2120","IH1918",
 #Tanner haul data 
 tanner_haul <- read.csv("./Data/crabhaul_bairdi.csv")
 
-#size at 50% maturity lookup
+#size at 50% prob of terminal molt lookup
 #we'll use this to assign male maturity by year, but b/c were missing 
 #years, we'll assign with static 103mm cutline, which is nearly eq. to 104mm timeseries mean
-read_csv("./output/size_at_mat.csv") %>%
+read_csv("./output/size_at_term_molt.csv") %>%
   select(Year, SAM_pop) %>%
   add_row(Year = c(1975:1989, 2013, 2015), SAM_pop = 103) %>%
   mutate(across(SAM_pop, round, 2)) %>%
@@ -69,24 +69,37 @@ tanner_haul %>%
 cpue_long %>%
   filter(!(GIS_STATION %in% corner)) %>% #exclude corner stations
   group_by(YEAR, size_sex) %>%
-  summarise(Lat_COD = weighted.mean(MID_LATITUDE, w = cpue)) -> COD 
+  summarise(Lat_COD = weighted.mean(MID_LATITUDE, w = cpue),
+            Lon_COD = weighted.mean(MID_LONGITUDE, w = cpue)) -> COD
 
-#plot
+#plot latitude centroid
 COD %>%
   select(YEAR, size_sex, Lat_COD) %>%
   filter(size_sex != "pop") %>%
   ggplot(aes(x = YEAR, y = Lat_COD, group= size_sex, color = size_sex))+
   geom_point(size=3)+
   theme_bw() +
-  labs(x="", y="Center of Abundance") +
+  labs(x="", y="Center of Abundance (deg lat)") +
   theme(legend.title=element_blank()) +
   geom_line() 
-ggsave(path = "./figs", "Tanner_Centroid.png")
+ggsave(path = "./figs", "Tanner_Centroid_Latitude.png")
+
+#plot longitude centroid
+COD %>%
+  select(YEAR, size_sex, Lon_COD) %>%
+  filter(size_sex != "pop") %>%
+  ggplot(aes(x = YEAR, y = Lon_COD, group= size_sex, color = size_sex))+
+  geom_point(size=3)+
+  theme_bw() +
+  labs(x="", y="Center of Abundance (deg long)") +
+  theme(legend.title=element_blank()) +
+  geom_line() 
+ggsave(path = "./figs", "Tanner_Centroid_Longitude.png")
 
 #Write output for COD indicator     
 COD %>%
-  pivot_wider(names_from = "size_sex", values_from = "Lat_COD") %>%
-  write.csv(file="./Output/centroid_abun.csv")
+  pivot_wider(names_from = "size_sex", values_from = c("Lat_COD", "Lon_COD")) %>%
+  write.csv(file="./output/centroid_abun.csv")
 
 ################################
 # compute D95 by each size and sex category ----

@@ -16,10 +16,10 @@ tanner_haul <- read.csv("./data/crabhaul_bairdi.csv")
 #Tanner strata data 
 tanner_strata <- read_csv("./data/crabstrata_bairdi.csv")
 
-#size at 50% maturity lookup
+#size at 50% prob of terminal molt lookup
   #we'll use this to assign male maturity by year, but b/c were missing 
   #years, we'll assign with static 103mm cutline, which is nearly eq. to 104mm timeseries mean
-read_csv("./output/size_at_mat.csv") %>%
+read_csv("./output/size_at_term_molt.csv") %>%
   select(Year, SAM_pop) %>%
   add_row(Year = c(1975:1989, 2013, 2015), SAM_pop = 103) %>%
   mutate(across(SAM_pop, round, 2)) %>%

@@ -7,6 +7,10 @@
 library(tidyverse)
 library(mgcv)
 
+#To do: Revise these to a spatial overlap metric 
+
+########################
+
 #Tanner haul data 
 tanner_haul <- read.csv("./Data/crabhaul_bairdi.csv")
 

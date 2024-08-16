@@ -6,13 +6,15 @@
 # load ----
 library(tidyverse)
 
+#To do: impute missing station temperatures for early years 
+
 #Tanner haul data 
 tanner_haul <- read.csv("./Data/crabhaul_bairdi.csv")
 
-#size at 50% maturity lookup
+#size at 50% prob of terminal molt lookup
 #we'll use this to assign male maturity by year, but b/c were missing 
 #years, we'll assign with static 103mm cutline, which is nearly eq. to 104mm timeseries mean
-read_csv("./output/size_at_mat.csv") %>%
+read_csv("./output/size_at_term_molt.csv") %>%
   select(Year, SAM_pop) %>%
   add_row(Year = c(1975:1989, 2013, 2015), SAM_pop = 103) %>%
   mutate(across(SAM_pop, round, 2)) %>%
@@ -66,6 +68,6 @@ ggsave(path = "./figs", "Tanner_Temp_Occupied.png")
 temp_occ %>%
   select(-AVG_BT) %>%
   pivot_wider(names_from = "size_sex", values_from = "TEMP_OCC") %>%
-  write.csv(file="./Output/Temp_Occupied.csv")
+  write.csv(file="./output/temp_occupied.csv")
 
 
