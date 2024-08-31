@@ -16,7 +16,7 @@ tanner_haul <- read.csv("./Data/crabhaul_bairdi.csv")
 tanner_strata <- read_csv("./Data/crabstrata_bairdi.csv")
 
 #Load groundfish data queried directly from Racebase (see "get gf data.R" script)
-benthic <- read.csv("./data/gf_cpue_timeseries.csv")
+benthic <- read.csv("./data/gf_cpue_timeseries_2024.csv")
 
 #Load tanner core area (see "get tanner core area.R" script)
 sta <- read_csv("./output/tanner_area_50perc.csv")
